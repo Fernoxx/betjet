@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Prediction } from '../lib/types';
 import { Flag } from './Flag';
 import { oddsPct, signedPct, signedUsd, pnlTone, TONE_COLOR } from '../lib/format';
@@ -16,8 +16,15 @@ const DEFAULT_SIZE = 10; // shares per one-tap bet
 
 export function PredictionCard({ prediction: p, onTraded }: Props) {
   const [status, setStatus] = useState<Status>({ kind: 'idle' });
+  const resetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tone = pnlTone(p.pnl);
   const color = TONE_COLOR[tone];
+
+  useEffect(() => {
+    return () => {
+      if (resetTimer.current) clearTimeout(resetTimer.current);
+    };
+  }, []);
 
   async function trade(side: 'BUY' | 'SELL') {
     if (status.kind === 'pending') return;
@@ -30,13 +37,14 @@ export function PredictionCard({ prediction: p, onTraded }: Props) {
     });
     setStatus({ kind: 'done', msg: res.message, ok: res.ok });
     if (res.ok) onTraded?.();
-    setTimeout(() => setStatus({ kind: 'idle' }), 2200);
+    if (resetTimer.current) clearTimeout(resetTimer.current);
+    resetTimer.current = setTimeout(() => setStatus({ kind: 'idle' }), 2200);
   }
 
   return (
     <div className="bj-card">
       <div className="bj-card-head">
-        <Flag label={p.outcomeLabel} countryCode={p.countryCode} size={30} />
+        <Flag label={p.outcomeLabel} countryCode={p.countryCode} size={24} />
         <div className="bj-card-meta">
           <div className="bj-card-title">{p.matchTitle}</div>
           {p.league && <div className="bj-card-league">{p.league}</div>}

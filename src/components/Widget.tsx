@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { WidgetSnapshot } from '../lib/types';
+import type { GateStatus } from '../lib/tokengate';
+import { checkGate } from '../lib/tokengate';
 import { computeSnapshot } from '../lib/data';
 import { CollapsedPill } from './CollapsedPill';
 import { SwipeDeck } from './SwipeDeck';
+import { LockedPill, GatePanel } from './Gate';
 
 const POLL_MS = 20_000;
+const GATE_POLL_MS = 60_000;
 
 function useSnapshot() {
   const [snapshot, setSnapshot] = useState<WidgetSnapshot | null>(null);
@@ -34,47 +38,80 @@ function useSnapshot() {
   return { snapshot, refresh };
 }
 
+function useGate() {
+  const [gate, setGate] = useState<GateStatus | null>(null);
+
+  const recheck = useCallback(async () => {
+    try {
+      setGate(await checkGate());
+    } catch {
+      /* keep last status */
+    }
+  }, []);
+
+  useEffect(() => {
+    recheck();
+    const t = setInterval(recheck, GATE_POLL_MS);
+    return () => clearInterval(t);
+  }, [recheck]);
+
+  return { gate, recheck };
+}
+
 export function Widget() {
   const { snapshot, refresh } = useSnapshot();
+  const { gate, recheck } = useGate();
   const [open, setOpen] = useState(false);
 
-  if (!snapshot) return null; // nothing to show until first load
+  if (!snapshot || !gate) return null; // nothing until first load
+
+  const locked = !gate.holds;
 
   return (
     <div className={`bj-root${open ? ' bj-open' : ''}`}>
       {open && (
-        <div className="bj-panel" role="dialog" aria-label="Live bets">
+        <div className="bj-panel" role="dialog" aria-label={locked ? 'Unlock BetJet' : 'Live bets'}>
           <div className="bj-panel-head">
             <div className="bj-panel-title">
-              {snapshot.hasLiveBets ? 'Your live bets' : 'Live markets'}
-              <span className="bj-live-badge">
-                <span className="bj-pill-dot" /> LIVE
-              </span>
+              {locked ? 'BetJet' : snapshot.hasLiveBets ? 'Your live bets' : 'Live markets'}
+              {!locked && (
+                <span className="bj-live-badge">
+                  <span className="bj-pill-dot" /> LIVE
+                </span>
+              )}
             </div>
             <div className="bj-panel-tools">
-              {snapshot.source === 'mock' && <span className="bj-demo-tag">demo</span>}
-              <button className="bj-icon-btn" onClick={refresh} aria-label="Refresh" title="Refresh">
-                ↻
-              </button>
+              {(snapshot.source === 'mock' || gate.demo) && <span className="bj-demo-tag">demo</span>}
+              {!locked && (
+                <button className="bj-icon-btn" onClick={refresh} aria-label="Refresh" title="Refresh">
+                  ↻
+                </button>
+              )}
               <button className="bj-icon-btn" onClick={() => setOpen(false)} aria-label="Close">
                 ✕
               </button>
             </div>
           </div>
 
-          {snapshot.predictions.length === 0 ? (
+          {locked ? (
+            <GatePanel status={gate} onRecheck={recheck} />
+          ) : snapshot.predictions.length === 0 ? (
             <div className="bj-empty">No live matches right now.</div>
           ) : (
             <SwipeDeck predictions={snapshot.predictions} onTraded={refresh} />
           )}
 
           <div className="bj-panel-foot">
-            Swipe for more · odds from Polymarket
+            {locked ? 'powered by $BETJET' : 'Swipe for more · odds from Polymarket'}
           </div>
         </div>
       )}
 
-      <CollapsedPill snapshot={snapshot} onClick={() => setOpen((v) => !v)} />
+      {locked ? (
+        <LockedPill onClick={() => setOpen((v) => !v)} />
+      ) : (
+        <CollapsedPill snapshot={snapshot} onClick={() => setOpen((v) => !v)} />
+      )}
     </div>
   );
 }

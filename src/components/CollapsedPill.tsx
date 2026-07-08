@@ -22,7 +22,7 @@ export function CollapsedPill({ snapshot, onClick }: Props) {
     return (
       <button className="bj-pill" onClick={onClick} aria-label="Open your live bets">
         <span className="bj-pill-dot" />
-        <Flag label={lead.outcomeLabel} countryCode={lead.countryCode} size={22} />
+        <Flag label={lead.outcomeLabel} countryCode={lead.countryCode} size={17} />
         <span className="bj-pill-odds">{oddsPct(lead.currentPrice)}</span>
         <span className="bj-pill-pnl" style={{ color }}>
           {signedPct(lead.pnlPct)}

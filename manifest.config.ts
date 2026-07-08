@@ -26,5 +26,9 @@ export default defineManifest({
     'https://gamma-api.polymarket.com/*',
     'https://clob.polymarket.com/*',
     'https://data-api.polymarket.com/*',
+    // $BETJET token gate: Solana balance + live pump.fun price
+    'https://api.mainnet-beta.solana.com/*',
+    'https://api.dexscreener.com/*',
+    'https://lite-api.jup.ag/*',
   ],
 });
